@@ -5,13 +5,13 @@ def slow_function(n):
     s = 0
     for i in range(n):
         s += n
+    return s
 
 if __name__ == "__main__":
     n = 50000000
 
     t0 = time.time()
     p = []
-    n_threads = 100
     for i in range(10):
         p.append(multiprocessing.Process(target=slow_function, args=(n,)))
         p[i].start()
