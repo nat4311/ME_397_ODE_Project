@@ -8,6 +8,7 @@ import colorsys
 """######################################################################
     user defines the ODE, params, initial conditions, and time bounds
 ######################################################################"""
+
 def f(x, p, t):
     if p[0] < .16:
         time.sleep(.001)
@@ -16,7 +17,7 @@ def f(x, p, t):
     x1dot = x2
     x2dot = p[0]*(1-x1**2)*x2 - x1
 
-    return [x1dot, x2dot]
+    return np.array([x1dot, x2dot])
 
 params_arr = np.array([
     [.13],
@@ -38,10 +39,11 @@ t = np.linspace(0,30,1000)
                         Validate user input
 ######################################################################"""
 
-assert x0_arr.shape[0] == params_arr.shape[0]
 s = x0_arr.shape[0]
+assert params_arr.shape[0] == s
 try:
-    f(x0_arr[0], params_arr[0], 0)
+    xdot = f(x0_arr[0], params_arr[0], 0)
+    assert xdot.shape[0] == s
 except Exception as e:
     print(e)
 
@@ -95,10 +97,11 @@ print(f"           parallel total time: {round(1000*(t1-t0), 2)} ms")
 """######################################################################
                         Evalution and Plots
 ######################################################################"""
-saturation = 1
-value = 1
+
+default_saturation = 1
+default_value = 1
 hues = [h.item() for h in np.linspace(0, .8, s)]
-colors = [colorsys.hsv_to_rgb(h, saturation, value) for h in hues]
+colors = [colorsys.hsv_to_rgb(h, default_saturation, default_value) for h in hues]
 
 plt.figure()
 for i in range(s):
