@@ -1,6 +1,4 @@
 """
-reference
-https://maths.cnam.fr/IMG/pdf/RungeKuttaFehlbergProof.pdf
 """
 
 import numpy as np
@@ -79,9 +77,9 @@ B = [
 c = [ 1/9, 0, 9/20, 16/45, 1/12 ]
 c_hat = [ 47/450, 0, 12/25, 32/225, 1/30, 6/25 ]
 
-def rk45_step(dxdt, x, t, h, eps=1e-6):
+def rk45_step(self, dxdt, x, t, h, eps=1e-5):
     """
-    returns x_next, t_next, h_next
+    returns x_next, t_next
     """
     # calc the k's
     k1 = h * dxdt(x,                                                                  t + A[0]*h)
@@ -98,9 +96,9 @@ def rk45_step(dxdt, x, t, h, eps=1e-6):
     if np.linalg.norm(y-z) < eps:
         return z, t+h, h
     else:
-        return rk45_step(dxdt, x, t, h=h/2)
+        return self.rk45_step(dxdt, x, t, h=h/2)
 
-def rk45_solve(dxdt, x0, t0, t_end, h0=.01):
+def rk45_solve(self, dxdt, x0, t0, t_end, h0=.01):
     x_output = [x0]
     t_output = [t0]
     h_output = [h0]
@@ -110,8 +108,8 @@ def rk45_solve(dxdt, x0, t0, t_end, h0=.01):
 
     while t<t_end:
         h_prev = h
-        x, t, h = rk45_step(dxdt, x, t, h)
-        if h == h_prev:
+        x, t, h = self.rk45_step(dxdt, x, t, h)
+        if h_prev == h:
             h *= 2
         x_output.append([xi.item() for xi in x])
         t_output.append(t)
@@ -144,32 +142,25 @@ colors = [colorsys.hsv_to_rgb(h, default_saturation, default_value) for h in hue
 
 plt.figure()
 
-## plot x1, x2
-for i in range(s):
-    plt.plot(
-        solutions_odeint[i][:, 0],
-        solutions_odeint[i][:, 1],
-        color = colors[i],
-        linestyle = ":",
-        label=f"st: {i = }")
+if False:
+    for i in range(s):
+        plt.plot(
+            solutions_odeint[i][:, 0],
+            solutions_odeint[i][:, 1],
+            color = colors[i],
+            linestyle = ":",
+            label=f"st: {i = }")
 
-    plt.plot(
-        x_rk45[i][:, 0],
-        x_rk45[i][:, 1],
-        color = colors[i],
-        linestyle = "-",
-        alpha = .5,
-        label=f"mt: {i = }")
-
-# ## plot rk45 vs odeint
-# i = 1
-# x_index = 1
-# plt.plot(t_odeint, solutions_odeint[i][:,x_index], linestyle = ":", label = "odeint")
-# plt.plot(t_rk45[i], x_rk45[i][:,x_index], label = "rk45", linestyle="-", alpha = .3)
-# plt.legend()
-
-# ## plot h
-# plt.plot(t_rk45[0], h_rk45[0], label = "rk45", linestyle="-", alpha = .3)
+        plt.plot(
+            x_rk45[i][:, 0],
+            x_rk45[i][:, 1],
+            color = colors[i],
+            linestyle = "-",
+            alpha = .5,
+            label=f"mt: {i = }")
+else:
+    # plt.plot(t_odeint, solutions_odeint[0][:,0], linestyle = ":", label = "odeint")
+    plt.plot(t_rk45[0], h_rk45[0], label = "rk45", linestyle="-", alpha = .3)
+    plt.legend()
 
 plt.show()
-
