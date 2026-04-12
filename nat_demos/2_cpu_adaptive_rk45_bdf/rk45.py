@@ -101,6 +101,13 @@ def rk45_step(dxdt, x, t, h, eps=1e-6):
         return rk45_step(dxdt, x, t, h=h/2)
 
 def rk45_solve(dxdt, x0, t0, t_end, h0=.01):
+    """
+    return x_output, t_output, h_output
+
+    x_output: 2D list of state values, x[i] = [x0[i], x1[i], x2[i], ...]
+    t_output: 1D list of time values, t[i] = time at x[i]
+    h_output: 1D list of timestep values used at each iteration
+    """
     x_output = [x0]
     t_output = [t0]
     h_output = [h0]
@@ -117,6 +124,10 @@ def rk45_solve(dxdt, x0, t0, t_end, h0=.01):
         t_output.append(t)
         h_output.append(h)
     return x_output, t_output, h_output
+
+"""######################################################################
+                        Run the solver
+######################################################################"""
 
 timestamp = time.time()
 
@@ -173,3 +184,6 @@ for i in range(s):
 
 plt.show()
 
+"""
+
+"""

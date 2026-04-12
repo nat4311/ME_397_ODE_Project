@@ -1,4 +1,7 @@
 """
+references
+https://www.scipedia.com/wd/images/e/ed/Draft_Content_631961461p3348.pdf
+https://en.wikipedia.org/wiki/Backward_differentiation_formula
 """
 
 import numpy as np
@@ -9,13 +12,13 @@ import time
 import colorsys
 
 """######################################################################
-    user defines the ODE, params, initial conditions, and time bounds
+    user defines the ODE, Jacobian (optional), params, initial conditions, and time bounds
 ######################################################################"""
 
-def f(x, p, t):
+def f(x, params, t):
     x1, x2 = x
     x1dot = x2
-    x2dot = p[0]*(1-x1**2)*x2 - x1
+    x2dot = params[0]*(1-x1**2)*x2 - x1
 
     return np.array([x1dot, x2dot])
 
@@ -45,7 +48,6 @@ except Exception as e:
                         Single Thread Built in Solver
 ######################################################################"""
 
-
 timestamp = time.time()
 
 t_odeint = np.linspace(t0,t_end,10000)
@@ -58,78 +60,167 @@ for i in range(s):
 print(f"odeint total time: {round(1000*(time.time()-timestamp), 2)} ms")
 
 """######################################################################
-                            Single Thread RK45
+                            Single Thread BDF
 ######################################################################"""
 
-"""
-Butcher table: see formula 1(Fehlberg) at
-https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta%E2%80%93Fehlberg_method
-"""
-A = [ 0, 2/9, 1/3, 3/4, 1, 5/6 ]
-B = [
-    [0],
-    [2/9],
-    [1/12, 1/4],
-    [69/128, -243/128, 135/64],
-    [-17/12, 27/4, -27/5, 16/15],
-    [65/432, -5/16, 13/16, 4/27, 5/144],
-]
-c = [ 1/9, 0, 9/20, 16/45, 1/12 ]
-c_hat = [ 47/450, 0, 12/25, 32/225, 1/30, 6/25 ]
+def numerical_jacobian(g, q, t, n, eps=1e-6):
+    Jg = np.zeros((n,n))
+    for i in range(n):
+        dq = np.zeros(n)
+        dq[i] = eps
+        col = (g(q+dq, t) - g(q, t))/eps
+        Jg[:,i] = col
+    return Jg
 
-def rk45_step(self, dxdt, x, t, h, eps=1e-5):
+
+def next_step_size(hprev, xn, xnm1, xnm2, xnm3, Atol=1e-10, Rtol=1e-5, F=.8, Fmin=0, Fmax=2.414):
     """
-    returns x_next, t_next
+    LTE and sc
+    see https://www.scipedia.com/wd/images/e/ed/Draft_Content_631961461p3348.pdf equation (1)
+    uses local truncation error approximation with BDF3 method
+
+    according to LLM:
+    Atol: absolute error floor
+    Rtol: relative accuracy
+
+    F, Fmin, Fmax
+    see https://www.scipedia.com/wd/images/e/ed/Draft_Content_631961461p3348.pdf equation (5)
     """
-    # calc the k's
-    k1 = h * dxdt(x,                                                                  t + A[0]*h)
-    k2 = h * dxdt(x + B[1][0]*k1,                                                     t + A[1]*h)
-    k3 = h * dxdt(x + B[2][0]*k1 + B[2][1]*k2,                                        t + A[2]*h)
-    k4 = h * dxdt(x + B[3][0]*k1 + B[3][1]*k2 + B[3][2]*k3,                           t + A[3]*h)
-    k5 = h * dxdt(x + B[4][0]*k1 + B[4][1]*k2 + B[4][2]*k3 + B[4][3]*k4,              t + A[4]*h)
-    k6 = h * dxdt(x + B[5][0]*k1 + B[5][1]*k2 + B[5][2]*k3 + B[5][3]*k4 + B[5][4]*k5, t + A[5]*h)
 
-    # updates
-    y = x + c[0]*k1 + c[1]*k2 + c[2]*k3 + c[3]*k4 + c[4]*k5
-    z = x + c_hat[0]*k1 + c_hat[1]*k2 + c_hat[2]*k3 + c_hat[3]*k4 + c_hat[4]*k5 + c_hat[5]*k6
+    LTE = 1/3*xn - xnm1 + xnm2 - 1/3*xnm3
+    sc = Atol + max(np.linalg.norm(xn), np.linalg.norm(xnm1))*Rtol
+    err = np.linalg.norm(LTE)/sc
 
-    if np.linalg.norm(y-z) < eps:
-        return z, t+h, h
+    return hprev * min(Fmax, max(Fmin, (1/err)**(1/3)*F))
+
+def BDF1_step(g, xcurr, t, h, n, Jg=None, newtonMaxIters=20, newtonTolerance=1e-6):
+    """
+    see reference section 2.1
+    g and Jg are dxdt and jacobian of dxdt
+    """
+
+    f = lambda q: q - h*g(q, t) - xcurr
+    I = np.eye(n)
+    if Jg is None:
+        dfinv = lambda q: np.linalg.inv(I - h*numerical_jacobian(g, q, t, n)) # todo: add delta to make sure invertible?
     else:
-        return self.rk45_step(dxdt, x, t, h=h/2)
+        dfinv = lambda q: np.linalg.inv(I - h*Jg(q, t)) # todo: add delta to make sure invertible?
 
-def rk45_solve(self, dxdt, x0, t0, t_end, h0=.01):
+    q = xcurr
+    for i in range(newtonMaxIters):
+        residual = f(q)
+        if np.linalg.norm(residual) < newtonTolerance:
+            break
+        dq = -dfinv(q)@residual
+        q += dq
+
+    assert type(q) == np.ndarray
+    return q
+
+def BDF2_step(g, xcurr, xprev, t, h, hprev, n, Jg=None, newtonMaxIters=20, newtonTolerance=1e-6):
+    """
+    g and Jg are dxdt and jacobian of dxdt
+    """
+
+    wn = h/hprev
+
+    # f
+    a = (1+2*wn)/(1+wn)
+    b = -(1+wn)**2/(1+wn)*xcurr + (wn**2)/(1+wn)*xprev
+    f = lambda q: a*q - h*g(q, t) + b
+
+    # df
+    c = a*np.eye(n)
+    if Jg is None:
+        dfinv = lambda q: np.linalg.inv(c - h*numerical_jacobian(g, q, t, n)) # todo: add delta to make sure invertible?
+    else:
+        dfinv = lambda q: np.linalg.inv(c - h*Jg(q, t)) # todo: add delta to make sure invertible?
+
+    # first guess
+    q = xcurr
+
+    # newton
+    for i in range(newtonMaxIters):
+        residual = f(q)
+        if np.linalg.norm(residual) < newtonTolerance:
+            break
+        dq = -dfinv(q)@residual
+        q += dq
+
+    assert type(q) == np.ndarray
+    return q
+
+def BDF2_solve(g, x0:np.array, t0:float, t_end:float, Jg=None, h0:float=.01):
+    """
+    INPUT:
+        g: ODE to be solved as a function(x,t)
+        x0: initial condition as 1D np.array
+        t0: start time as float
+        t_end: end time as float
+        Jg: Optional - Jacobian of the ODE function(x,t). if None provided use numerical method
+        h0: initial step size
+    ---------------------------------------------------------------------------
+    OUTPUT:
+        returns x_output, t_output, h_output
+        x_output: 2D list of state values, x[i] = [x0[i], x1[i], x2[i], ...]
+        t_output: 1D list of time values, t[i] = time at x[i]
+        h_output: 1D list of timestep values used at each iteration
+    """
+
     x_output = [x0]
     t_output = [t0]
-    h_output = [h0]
-    x = x0
+    h_output = []
+    xcurr = x0
     t = t0
     h = h0
+    n = x0.shape[0]
+
+    # compute first step using BDF1
+    xcurr = BDF1_step(g, xcurr, t, h, n, Jg)
+    t += h
+    x_output.append(xcurr)
+    t_output.append(t)
+    h_output.append(h)
 
     while t<t_end:
-        h_prev = h
-        x, t, h = self.rk45_step(dxdt, x, t, h)
-        if h_prev == h:
-            h *= 2
-        x_output.append([xi.item() for xi in x])
+        xprev = x_output[-2] #todo first value
+        hprev = h_output[-1]
+
+        # update x
+        xcurr = BDF2_step(g, xcurr, xprev, t, h, hprev, n, Jg)
+
+        # update t
+        t += h
+
+        # next step size
+        if len(x_output) >= 3:
+            h = next_step_size(hprev, xcurr, x_output[-1], x_output[-2], x_output[-3])
+
+        # save data
+        x_output.append(xcurr)
         t_output.append(t)
-        h_output.append(h)
+        h_output.append(hprev)
+
     return x_output, t_output, h_output
+
+"""######################################################################
+                        Run the solver
+######################################################################"""
 
 timestamp = time.time()
 
-x_rk45 = list()
-t_rk45 = list()
-h_rk45 = list()
+x_bdf = list()
+t_bdf = list()
+h_bdf = list()
 for i in range(s):
     dxdt = lambda x,t : f(x, params_arr[i], t)
-    x_output, t_output, h_output = rk45_solve(dxdt, x0_arr[i,:], t0, t_end)
-    x_rk45.append(x_output)
-    t_rk45.append(t_output)
-    h_rk45.append(h_output)
+    x_output, t_output, h_output = BDF2_solve(dxdt, x0_arr[i,:], t0, t_end)
+    x_bdf.append(x_output)
+    t_bdf.append(t_output)
+    h_bdf.append(h_output)
 
-x_rk45 = [np.array(arr) for arr in x_rk45]
-print(f"rk45 total time: {round(1000*(time.time()-timestamp), 2)} ms")
+x_bdf = [np.array(arr) for arr in x_bdf]
+print(f"BDF2 total time: {round(1000*(time.time()-timestamp), 2)} ms")
 
 """######################################################################
                         Evalution and Plots
@@ -142,25 +233,32 @@ colors = [colorsys.hsv_to_rgb(h, default_saturation, default_value) for h in hue
 
 plt.figure()
 
-if False:
-    for i in range(s):
-        plt.plot(
-            solutions_odeint[i][:, 0],
-            solutions_odeint[i][:, 1],
-            color = colors[i],
-            linestyle = ":",
-            label=f"st: {i = }")
+# ## plot x1 vs x2
+# for i in range(s):
+#     plt.plot(
+#         solutions_odeint[i][:, 0],
+#         solutions_odeint[i][:, 1],
+#         color = colors[i],
+#         linestyle = ":",
+#         label=f"st: {i = }")
+#
+#     plt.plot(
+#         x_bdf[i][:, 0],
+#         x_bdf[i][:, 1],
+#         color = colors[i],
+#         linestyle = "-",
+#         alpha = .5,
+#         label=f"mt: {i = }")
 
-        plt.plot(
-            x_rk45[i][:, 0],
-            x_rk45[i][:, 1],
-            color = colors[i],
-            linestyle = "-",
-            alpha = .5,
-            label=f"mt: {i = }")
-else:
-    # plt.plot(t_odeint, solutions_odeint[0][:,0], linestyle = ":", label = "odeint")
-    plt.plot(t_rk45[0], h_rk45[0], label = "rk45", linestyle="-", alpha = .3)
-    plt.legend()
+## plot single state x vs t
+paramindex = 0
+stateno = 0
+plt.plot(t_odeint, solutions_odeint[paramindex][:,stateno], linestyle = ":", label = "odeint")
+plt.plot(t_bdf[paramindex], x_bdf[paramindex][:,stateno], linestyle = ":", label = "odeint")
+plt.legend()
+print(x_bdf[paramindex][:,stateno])
+
+# ## plot step size
+# plt.plot(t_bdf[0][:-1], h_bdf[0], label = "bdf", linestyle="-", alpha = .3)
 
 plt.show()
