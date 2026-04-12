@@ -22,13 +22,13 @@ def f(x, params, t):
 
     return np.array([x1dot, x2dot])
 
-n_odes = 4
+n_odes = 1
 params_arr = np.random.rand(n_odes,1) * .2
 
 x0_arr = np.random.rand(n_odes,2) * n_odes
 
 t0 = 0
-t_end = 10
+t_end = 1
 
 """######################################################################
                         Validate user input
@@ -50,7 +50,7 @@ except Exception as e:
 
 timestamp = time.time()
 
-t_odeint = np.linspace(t0,t_end,10000)
+t_odeint = np.linspace(t0,t_end,int(t_end/.01) + 1)
 solutions_odeint = list()
 for i in range(s):
     dxdt = lambda x,t : f(x, params_arr[i], t)
@@ -87,10 +87,12 @@ def next_step_size(hprev, xn, xnm1, xnm2, xnm3, Atol=1e-10, Rtol=1e-5, F=.8, Fmi
     see https://www.scipedia.com/wd/images/e/ed/Draft_Content_631961461p3348.pdf equation (5)
     """
 
-    LTE = 1/3*xn - xnm1 + xnm2 - 1/3*xnm3
+    LTE_norm = np.linalg.norm(1/3*xn - xnm1 + xnm2 - 1/3*xnm3)
+    if LTE_norm < 1e-10:
+        return hprev * Fmax
     sc = Atol + max(np.linalg.norm(xn), np.linalg.norm(xnm1))*Rtol
-    err = np.linalg.norm(LTE)/sc
-
+    err = LTE_norm/sc
+    
     return hprev * min(Fmax, max(Fmin, (1/err)**(1/3)*F))
 
 def BDF1_step(g, xcurr, t, h, n, Jg=None, newtonMaxIters=20, newtonTolerance=1e-6):
@@ -111,13 +113,15 @@ def BDF1_step(g, xcurr, t, h, n, Jg=None, newtonMaxIters=20, newtonTolerance=1e-
         residual = f(q)
         if np.linalg.norm(residual) < newtonTolerance:
             break
+        if i == newtonMaxIters-1:
+            print("reached max iters")
         dq = -dfinv(q)@residual
         q += dq
 
     assert type(q) == np.ndarray
     return q
 
-def BDF2_step(g, xcurr, xprev, t, h, hprev, n, Jg=None, newtonMaxIters=20, newtonTolerance=1e-6):
+def BDF2_step(g, xcurr, xprev, t, h, hprev, n, Jg=None, newtonMaxIters=20, newtonTolerance=1e-10):
     """
     g and Jg are dxdt and jacobian of dxdt
     """
@@ -144,6 +148,8 @@ def BDF2_step(g, xcurr, xprev, t, h, hprev, n, Jg=None, newtonMaxIters=20, newto
         residual = f(q)
         if np.linalg.norm(residual) < newtonTolerance:
             break
+        if i == newtonMaxIters-1:
+            print("reached max iters")
         dq = -dfinv(q)@residual
         q += dq
 
@@ -204,6 +210,27 @@ def BDF2_solve(g, x0:np.array, t0:float, t_end:float, Jg=None, h0:float=.01):
     return x_output, t_output, h_output
 
 """######################################################################
+                        Run rk45 solver
+######################################################################"""
+from rk45 import RK45Solver
+
+timestamp = time.time()
+
+rk45solver = RK45Solver()
+x_rk45 = list()
+t_rk45 = list()
+h_rk45 = list()
+for i in range(s):
+    dxdt = lambda x,t : f(x, params_arr[i], t)
+    x_output, t_output, h_output = rk45solver.solve(dxdt, x0_arr[i,:], t0, t_end)
+    x_rk45.append(x_output)
+    t_rk45.append(t_output)
+    h_rk45.append(h_output)
+
+x_rk45 = [np.array(arr) for arr in x_rk45]
+print(f"rk45 total time: {round(1000*(time.time()-timestamp), 2)} ms")
+
+"""######################################################################
                         Run the solver
 ######################################################################"""
 
@@ -226,6 +253,7 @@ print(f"BDF2 total time: {round(1000*(time.time()-timestamp), 2)} ms")
                         Evalution and Plots
 ######################################################################"""
 
+
 default_saturation = 1
 default_value = 1
 hues = [h.item() for h in np.linspace(0, .8, s)]
@@ -233,7 +261,7 @@ colors = [colorsys.hsv_to_rgb(h, default_saturation, default_value) for h in hue
 
 plt.figure()
 
-# ## plot x1 vs x2
+################## plot x1 vs x2
 # for i in range(s):
 #     plt.plot(
 #         solutions_odeint[i][:, 0],
@@ -250,15 +278,16 @@ plt.figure()
 #         alpha = .5,
 #         label=f"mt: {i = }")
 
-## plot single state x vs t
+#################### plot single state x vs t
+
 paramindex = 0
 stateno = 0
-plt.plot(t_odeint, solutions_odeint[paramindex][:,stateno], linestyle = ":", label = "odeint")
-plt.plot(t_bdf[paramindex], x_bdf[paramindex][:,stateno], linestyle = ":", label = "odeint")
+plt.plot(t_odeint, solutions_odeint[paramindex][:,stateno], linestyle = "-", label = "odeint")
+plt.plot(t_rk45[paramindex], x_rk45[paramindex][:,stateno], linestyle = ":", label = "rk45")
+plt.plot(t_bdf[paramindex], x_bdf[paramindex][:,stateno], linestyle = ":", label = "bdf")
 plt.legend()
-print(x_bdf[paramindex][:,stateno])
 
-# ## plot step size
+###################### plot step size
 # plt.plot(t_bdf[0][:-1], h_bdf[0], label = "bdf", linestyle="-", alpha = .3)
 
 plt.show()
