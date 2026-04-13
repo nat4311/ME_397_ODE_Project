@@ -175,8 +175,8 @@ def BDF2_solve(g, x0:np.array, t0:float, t_end:float, Jg=None, h0:float=.01):
         h_output: 1D list of timestep values used at each iteration
     """
 
-    x_output = [x0]
-    t_output = [t0]
+    x_output = [deepcopy(x0)]
+    t_output = [deepcopy(t0)]
     h_output = []
     xcurr = x0
     t = t0
@@ -191,8 +191,8 @@ def BDF2_solve(g, x0:np.array, t0:float, t_end:float, Jg=None, h0:float=.01):
     h_output.append(deepcopy(h))
 
     while t<t_end:
-        xprev = x_output[-2] #todo first value
-        hprev = h_output[-1]
+        xprev = deepcopy(x_output[-2]) #todo first value
+        hprev = deepcopy(h_output[-1])
 
         # update x
         xcurr = BDF2_step(g, xcurr, xprev, t, h, hprev, n, Jg)
@@ -202,7 +202,7 @@ def BDF2_solve(g, x0:np.array, t0:float, t_end:float, Jg=None, h0:float=.01):
 
         # next step size
         if len(x_output) >= 3:
-            h = next_step_size(hprev, xcurr, x_output[-1], x_output[-2], x_output[-3])
+            h = next_step_size(hprev, xcurr, deepcopy(x_output[-1]), deepcopy(x_output[-2]), deepcopy(x_output[-3]))
 
         # save data
         x_output.append(deepcopy(xcurr))
@@ -290,7 +290,11 @@ plt.plot(t_rk45[paramindex], x_rk45[paramindex][:,stateno], linestyle = ":", lab
 plt.plot(t_bdf[paramindex], x_bdf[paramindex][:,stateno], linestyle = "-.", label = "bdf")
 plt.legend()
 
+print(f"odeint: {solutions_odeint[paramindex][0,:]}")
+print(f"rk45: {x_rk45[paramindex][0,:]}")
+print(f"bdf: {x_bdf[paramindex][0,:]}")
+
 ###################### plot step size
 # plt.plot(t_bdf[0][:-1], h_bdf[0], label = "bdf", linestyle="-", alpha = .3)
 
-# plt.show()
+plt.show()
