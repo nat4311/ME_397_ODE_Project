@@ -24,13 +24,13 @@ def f(x, params, t):
 
     return np.array([x1dot, x2dot])
 
-n_odes = 1
+n_odes = 4
 params_arr = np.random.rand(n_odes,1) * .2
 
 x0_arr = np.random.rand(n_odes,2) * n_odes
 
 t0 = 0
-t_end = 1
+t_end = 10
 
 """######################################################################
                         Validate user input
@@ -110,13 +110,13 @@ def BDF1_step(g, xcurr, t, h, n, Jg=None, newtonMaxIters=20, newtonTolerance=1e-
     else:
         dfinv = lambda q: np.linalg.inv(I - h*Jg(q, t)) # todo: add delta to make sure invertible?
 
-    q = xcurr
+    q = deepcopy(xcurr)
     for i in range(newtonMaxIters):
         residual = f(q)
         if np.linalg.norm(residual) < newtonTolerance:
             break
         if i == newtonMaxIters-1:
-            print("reached max iters")
+            print("WARNING: BDF2_step reached max iters")
         dq = -dfinv(q)@residual
         q += dq
 
@@ -143,7 +143,7 @@ def BDF2_step(g, xcurr, xprev, t, h, hprev, n, Jg=None, newtonMaxIters=20, newto
         dfinv = lambda q: np.linalg.inv(c - h*Jg(q, t)) # todo: add delta to make sure invertible?
 
     # first guess
-    q = xcurr
+    q = deepcopy(xcurr)
 
     # newton
     for i in range(newtonMaxIters):
@@ -151,7 +151,7 @@ def BDF2_step(g, xcurr, xprev, t, h, hprev, n, Jg=None, newtonMaxIters=20, newto
         if np.linalg.norm(residual) < newtonTolerance:
             break
         if i == newtonMaxIters-1:
-            print("reached max iters")
+            print("WARNING: BDF2_step reached max iters")
         dq = -dfinv(q)@residual
         q += dq
 
@@ -265,34 +265,34 @@ colors = [colorsys.hsv_to_rgb(h, default_saturation, default_value) for h in hue
 plt.figure()
 
 ################## plot x1 vs x2
-# for i in range(s):
-#     plt.plot(
-#         solutions_odeint[i][:, 0],
-#         solutions_odeint[i][:, 1],
-#         color = colors[i],
-#         linestyle = ":",
-#         label=f"st: {i = }")
-#
-#     plt.plot(
-#         x_bdf[i][:, 0],
-#         x_bdf[i][:, 1],
-#         color = colors[i],
-#         linestyle = "-",
-#         alpha = .5,
-#         label=f"mt: {i = }")
+for i in range(s):
+    plt.plot(
+        solutions_odeint[i][:, 0],
+        solutions_odeint[i][:, 1],
+        color = colors[i],
+        linestyle = ":",
+        label=f"st: {i = }")
+
+    plt.plot(
+        x_bdf[i][:, 0],
+        x_bdf[i][:, 1],
+        color = colors[i],
+        linestyle = "-",
+        alpha = .5,
+        label=f"mt: {i = }")
 
 #################### plot single state x vs t
 
-paramindex = 0
-stateno = 0
-plt.plot(t_odeint, solutions_odeint[paramindex][:,stateno], linestyle = "-", label = "odeint")
-plt.plot(t_rk45[paramindex], x_rk45[paramindex][:,stateno], linestyle = ":", label = "rk45")
-plt.plot(t_bdf[paramindex], x_bdf[paramindex][:,stateno], linestyle = "-.", label = "bdf")
-plt.legend()
+# paramindex = 0
+# stateno = 0
+# plt.plot(t_odeint, solutions_odeint[paramindex][:,stateno], linestyle = "-", label = "odeint")
+# plt.plot(t_rk45[paramindex], x_rk45[paramindex][:,stateno], linestyle = ":", label = "rk45")
+# plt.plot(t_bdf[paramindex], x_bdf[paramindex][:,stateno], linestyle = "-.", label = "bdf")
+# plt.legend()
 
-print(f"odeint: {solutions_odeint[paramindex][0,:]}")
-print(f"rk45: {x_rk45[paramindex][0,:]}")
-print(f"bdf: {x_bdf[paramindex][0,:]}")
+# print(f"odeint: {solutions_odeint[paramindex][0,:]}")
+# print(f"rk45: {x_rk45[paramindex][0,:]}")
+# print(f"bdf: {x_bdf[paramindex][0,:]}")
 
 ###################### plot step size
 # plt.plot(t_bdf[0][:-1], h_bdf[0], label = "bdf", linestyle="-", alpha = .3)
