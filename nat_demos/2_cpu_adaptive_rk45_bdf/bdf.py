@@ -10,6 +10,8 @@ from scipy.integrate import odeint
 import multiprocessing
 import time
 import colorsys
+from copy import deepcopy
+print("====================================")
 
 """######################################################################
     user defines the ODE, Jacobian (optional), params, initial conditions, and time bounds
@@ -108,7 +110,7 @@ def BDF1_step(g, xcurr, t, h, n, Jg=None, newtonMaxIters=20, newtonTolerance=1e-
     else:
         dfinv = lambda q: np.linalg.inv(I - h*Jg(q, t)) # todo: add delta to make sure invertible?
 
-    q = xcurr
+    q = deepcopy(xcurr)
     for i in range(newtonMaxIters):
         residual = f(q)
         if np.linalg.norm(residual) < newtonTolerance:
@@ -168,7 +170,7 @@ def BDF2_solve(g, x0:np.array, t0:float, t_end:float, Jg=None, h0:float=.01):
     ---------------------------------------------------------------------------
     OUTPUT:
         returns x_output, t_output, h_output
-        x_output: 2D list of state values, x[i] = [x0[i], x1[i], x2[i], ...]
+        x_output: nxm np.array of state values, x[i,:] = np.array([x0i, x1i, x2i, ...])
         t_output: 1D list of time values, t[i] = time at x[i]
         h_output: 1D list of timestep values used at each iteration
     """
@@ -206,6 +208,8 @@ def BDF2_solve(g, x0:np.array, t0:float, t_end:float, Jg=None, h0:float=.01):
         x_output.append(xcurr)
         t_output.append(t)
         h_output.append(hprev)
+
+    x_output = np.array(x_output)
 
     return x_output, t_output, h_output
 
@@ -246,7 +250,6 @@ for i in range(s):
     t_bdf.append(t_output)
     h_bdf.append(h_output)
 
-x_bdf = [np.array(arr) for arr in x_bdf]
 print(f"BDF2 total time: {round(1000*(time.time()-timestamp), 2)} ms")
 
 """######################################################################
@@ -284,7 +287,7 @@ paramindex = 0
 stateno = 0
 plt.plot(t_odeint, solutions_odeint[paramindex][:,stateno], linestyle = "-", label = "odeint")
 plt.plot(t_rk45[paramindex], x_rk45[paramindex][:,stateno], linestyle = ":", label = "rk45")
-plt.plot(t_bdf[paramindex], x_bdf[paramindex][:,stateno], linestyle = ":", label = "bdf")
+plt.plot(t_bdf[paramindex], x_bdf[paramindex][:,stateno], linestyle = "-.", label = "bdf")
 plt.legend()
 
 ###################### plot step size
