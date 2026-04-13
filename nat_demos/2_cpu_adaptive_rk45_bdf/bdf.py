@@ -110,7 +110,7 @@ def BDF1_step(g, xcurr, t, h, n, Jg=None, newtonMaxIters=20, newtonTolerance=1e-
     else:
         dfinv = lambda q: np.linalg.inv(I - h*Jg(q, t)) # todo: add delta to make sure invertible?
 
-    q = deepcopy(xcurr)
+    q = xcurr
     for i in range(newtonMaxIters):
         residual = f(q)
         if np.linalg.norm(residual) < newtonTolerance:
@@ -186,9 +186,9 @@ def BDF2_solve(g, x0:np.array, t0:float, t_end:float, Jg=None, h0:float=.01):
     # compute first step using BDF1
     xcurr = BDF1_step(g, xcurr, t, h, n, Jg)
     t += h
-    x_output.append(xcurr)
-    t_output.append(t)
-    h_output.append(h)
+    x_output.append(deepcopy(xcurr))
+    t_output.append(deepcopy(t))
+    h_output.append(deepcopy(h))
 
     while t<t_end:
         xprev = x_output[-2] #todo first value
@@ -205,9 +205,9 @@ def BDF2_solve(g, x0:np.array, t0:float, t_end:float, Jg=None, h0:float=.01):
             h = next_step_size(hprev, xcurr, x_output[-1], x_output[-2], x_output[-3])
 
         # save data
-        x_output.append(xcurr)
-        t_output.append(t)
-        h_output.append(hprev)
+        x_output.append(deepcopy(xcurr))
+        t_output.append(deepcopy(t))
+        h_output.append(deepcopy(h))
 
     x_output = np.array(x_output)
 
@@ -293,4 +293,4 @@ plt.legend()
 ###################### plot step size
 # plt.plot(t_bdf[0][:-1], h_bdf[0], label = "bdf", linestyle="-", alpha = .3)
 
-plt.show()
+# plt.show()
