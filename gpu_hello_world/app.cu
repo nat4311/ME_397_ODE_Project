@@ -1,7 +1,11 @@
 /************************************************************************
 # to compile:
+# if gcc version > 13
 sudo apt install gcc-12
 nvcc -ccbin gcc-12 app.cu -o app
+
+# if not you can just do
+nvcc app.cu -o app
 
 # to run:
 ./app
