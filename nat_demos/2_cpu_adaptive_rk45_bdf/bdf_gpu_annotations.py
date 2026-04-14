@@ -87,7 +87,6 @@ def BDF1_step(g, xcurr, t, h, n, Jg=None, newtonMaxIters=20, newtonTolerance=1e-
     assert type(q) == np.ndarray
     return q
 
-
 def BDF2_step(g, xcurr, xprev, t, h, hprev, n, Jg=None, newtonMaxIters=20, newtonTolerance=1e-10):
     wn = h/hprev
 
