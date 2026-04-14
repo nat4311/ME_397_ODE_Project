@@ -4,7 +4,7 @@ how to deal with output? adaptive means we can't preallocate memory since we don
 jacobian computation (for newtons method inside BDF_step)
 matrix inversion     (invert the jacobian for newton's method)
 mat*vec              (to compute the next q_guess in newton's method)
-dxdt computation     (to compute residual for newton's method. this is defined by user, less important?)
+dxdt computation     (to compute residual, numerical jacobian. this is defined by user - force them to provide GPU kernel?)
 
 vector norm calcs    (these appear in multiple places)
 vector sums          (if n=O(10), should be vectorized without any additional work from us? need to check size of vectorized add for gpu. these appear in multiple places)
