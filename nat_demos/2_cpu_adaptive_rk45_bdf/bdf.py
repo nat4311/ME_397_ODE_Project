@@ -24,13 +24,13 @@ def f(x, params, t):
 
     return np.array([x1dot, x2dot])
 
-n_odes = 4
+n_odes = 8
 params_arr = np.random.rand(n_odes,1) * .2
 
 x0_arr = np.random.rand(n_odes,2) * n_odes
 
 t0 = 0
-t_end = 1
+t_end = 3
 
 """######################################################################
                         Validate user input
@@ -191,7 +191,7 @@ def BDF2_solve(g, x0:np.array, t0:float, t_end:float, Jg=None, h0:float=.01):
     h_output.append(deepcopy(h))
 
     while t<t_end:
-        xprev = deepcopy(x_output[-2]) #todo first value
+        xprev = deepcopy(x_output[-2])
         hprev = deepcopy(h_output[-1])
 
         # update x
