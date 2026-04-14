@@ -30,7 +30,7 @@ params_arr = np.random.rand(n_odes,1) * .2
 x0_arr = np.random.rand(n_odes,2) * n_odes
 
 t0 = 0
-t_end = 10
+t_end = 1
 
 """######################################################################
                         Validate user input
@@ -200,14 +200,16 @@ def BDF2_solve(g, x0:np.array, t0:float, t_end:float, Jg=None, h0:float=.01):
         # update t
         t += h
 
+        # save step size
+        h_output.append(deepcopy(h))
+
         # next step size
         if len(x_output) >= 3:
             h = next_step_size(hprev, xcurr, deepcopy(x_output[-1]), deepcopy(x_output[-2]), deepcopy(x_output[-3]))
 
         # save data
-        x_output.append(deepcopy(xcurr))
         t_output.append(deepcopy(t))
-        h_output.append(deepcopy(h))
+        x_output.append(deepcopy(xcurr))
 
     x_output = np.array(x_output)
 
