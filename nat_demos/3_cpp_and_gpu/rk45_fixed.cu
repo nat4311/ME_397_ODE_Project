@@ -1,5 +1,5 @@
 /************************************************************************
-nvcc -ccbin gcc-12 rk45_fixed.cu -o rk45_fixed; ./rk45_fixed
+nvcc -ccbin gcc-12 rk45_fixed.cu -o rk45_fixed.out; ./rk45_fixed.out
 ************************************************************************/
 
 #include <cuda_runtime.h>
@@ -11,12 +11,29 @@ nvcc -ccbin gcc-12 rk45_fixed.cu -o rk45_fixed; ./rk45_fixed
 
 struct Vec2{
     double x, y;
+
+    __host__ __device__ Vec2() {}
     __host__ __device__ Vec2(double x, double y) : x(x), y(y) {}
-    __host__ __device__ Vec2 operator+(const Vec2& other){ return {x+other.x, y+other.y}; }
-    __host__ __device__ Vec2 operator*(double s){ return {s*x, s*y}; }
-    __host__ __device__ double operator()(int i) const{ return (i==0)? x : y; } // getter
-    __host__ __device__ double& operator()(int i){ return (i==0)? x : y; } // setter
+
+    __host__ __device__ Vec2 operator+(const Vec2& other){
+        return {x+other.x, y+other.y};
+    }
+    __host__ __device__ Vec2 operator*(double s){
+        return {s*x, s*y};
+    }
+    // getter
+    __host__ __device__ double operator()(int i) const{
+        return (i==0)? x : y;
+    }
+    // setter
+    __host__ __device__ double& operator()(int i){
+        return (i==0)? x : y;
+    }
 };
+
+__host__ __device__ Vec2 operator*(double s, const Vec2& v) { 
+    return s*v;
+}
 
 const double h = .01;
 const double t0 = 0.0;
@@ -40,17 +57,25 @@ const double p_arr[m][s] = {
     .4
 };
 
+__device__ Vec2 dxdt(Vec2 x, double p) {
+    const double x1 = x.x;
+    const double x2 = x.y;
+    Vec2 xdot;
+    xdot(0) = x2;
+    xdot(1) = p*(1.0-x1*x1)*x2 - x1;
+}
+
 /************************************************************************
                         SOLVER KERNEL                   
 ************************************************************************/
 
 // Butcher Table Values
-const double A1 = 0.0;
-const double A2 = 2.0/9.0;
-const double A3 = 1.0/3.0;
-const double A4 = 3.0/4.0;
-const double A5 = 1.0;
-const double A6 = 5.0/6.0;
+// const double A1 = 0.0;
+// const double A2 = 2.0/9.0;
+// const double A3 = 1.0/3.0;
+// const double A4 = 3.0/4.0;
+// const double A5 = 1.0;
+// const double A6 = 5.0/6.0;
 const double B21 =    2.0/9.0;
 const double B31 =   1.0/12.0; const double B32 =      1.0/4.0;
 const double B41 = 69.0/128.0; const double B42 = -243.0/128.0; const double B43 = 135.0/64.0;
@@ -82,7 +107,7 @@ __global__ void rk45_fixed(double* x_output_GPU, double* t_output_GPU) {
     Vec2 x(x0_arr[tid][0], x0_arr[tid][1]);
     double p = p_arr[tid][0];
     double t = t0;
-    double k1, k2, k3, k4, k5, k6;
+    Vec2 k1, k2, k3, k4, k5, k6;
 
     // write initial data
     write_x(x_output_GPU, &x, tid, 0);
@@ -90,7 +115,13 @@ __global__ void rk45_fixed(double* x_output_GPU, double* t_output_GPU) {
 
     for (int i=1; i<=n_timesteps; i++) {
         // step
-        k1 = h;
+        k1 = h * dxdt(x, p);
+        k2 = h * dxdt(x + B21*k1, p);
+        k3 = h * dxdt(x + B31*k1 + B32*k2, p);
+        k4 = h * dxdt(x + B41*k1 + B42*k2 + B43*k3, p);
+        k5 = h * dxdt(x + B51*k1 + B52*k2 + B53*k3 + B54*k4, p);
+        k6 = h * dxdt(x + B61*k1 + B62*k2 + B63*k3 + B64*k4 + B65*k5, p);
+        x = x + C1*k1 + C2*k2 + C3*k3 + C4*k4 + C5*k5 + C6*k6;
 
         // write data
         write_x(x_output_GPU, &x, tid, i);

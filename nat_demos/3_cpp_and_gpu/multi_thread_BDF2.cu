@@ -1,9 +1,9 @@
 /************************************************************************
 # to compile:
-nvcc -ccbin gcc-12 multi_thread_BDF2.cu -o gpu_app
+nvcc -ccbin gcc-12 multi_thread_BDF2.cu -o gpu_app.out
 
 # to run:
-./gpu_app
+./gpu_app.out
 ************************************************************************/
 
 #include <cuda_runtime.h>
