@@ -14,56 +14,6 @@ from copy import deepcopy
 print("====================================")
 
 """######################################################################
-    user defines the ODE, Jacobian (optional), params, initial conditions, and time bounds
-######################################################################"""
-
-def f(x, params, t):
-    x1, x2 = x
-    x1dot = x2
-    x2dot = params[0]*(1-x1**2)*x2 - x1
-
-    return np.array([x1dot, x2dot])
-
-n_odes = 4
-# params_arr = np.random.rand(n_odes,1) * .2
-# x0_arr = np.random.rand(n_odes,2) * n_odes
-
-params_arr = np.array([[.1]])
-x0_arr = np.array([[.2,.3]])
-
-t0 = 0
-t_end = 10
-
-"""######################################################################
-                        Validate user input
-######################################################################"""
-
-s = x0_arr.shape[0]
-assert params_arr.shape[0] == s
-try:
-    xdot = f(x0_arr[0], params_arr[0], 0)
-    if xdot.shape[0] != x0_arr.shape[1]:
-        raise Exception("xdot has wrong shape")
-except Exception as e:
-    print(e)
-    raise
-
-"""######################################################################
-                        Single Thread Built in Solver
-######################################################################"""
-
-timestamp = time.time()
-
-t_odeint = np.linspace(t0,t_end,int(t_end/.01) + 1)
-solutions_odeint = list()
-for i in range(s):
-    dxdt = lambda x,t : f(x, params_arr[i], t)
-    solution = odeint(dxdt, x0_arr[i,:], t_odeint)
-    solutions_odeint.append(solution)
-
-print(f"odeint total time: {round(1000*(time.time()-timestamp), 2)} ms")
-
-"""######################################################################
                             Single Thread BDF
 ######################################################################"""
 
@@ -234,88 +184,141 @@ def BDF2_solve(g, x0:np.array, t0:float, t_end:float, Jg=None, h0:float=.01):
 
     return x_output, t_output, h_output
 
-"""######################################################################
-                        Run rk45 solver
-######################################################################"""
-from rk45 import RK45Solver
+if __name__ == "__main__":
 
-timestamp = time.time()
+    """######################################################################
+        user defines the ODE, Jacobian (optional), params, initial conditions, and time bounds
+    ######################################################################"""
 
-rk45solver = RK45Solver()
-x_rk45 = list()
-t_rk45 = list()
-h_rk45 = list()
-for i in range(s):
-    dxdt = lambda x,t : f(x, params_arr[i], t)
-    x_output, t_output, h_output = rk45solver.solve(dxdt, x0_arr[i,:], t0, t_end)
-    x_rk45.append(x_output)
-    t_rk45.append(t_output)
-    h_rk45.append(h_output)
+    def f(x, params, t):
+        x1, x2 = x
+        x1dot = x2
+        x2dot = params[0]*(1-x1**2)*x2 - x1
 
-x_rk45 = [np.array(arr) for arr in x_rk45]
-print(f"rk45 total time: {round(1000*(time.time()-timestamp), 2)} ms")
+        return np.array([x1dot, x2dot])
 
-"""######################################################################
-                        Run the solver
-######################################################################"""
+    # n_odes = 4
+    # params_arr = np.random.rand(n_odes,1) * .2
+    # x0_arr = np.random.rand(n_odes,2) * n_odes
 
-timestamp = time.time()
+    params_arr = np.array([[.1]])
+    x0_arr = np.array([[.2,.3]])
 
-x_bdf = list()
-t_bdf = list()
-h_bdf = list()
-for i in range(s):
-    dxdt = lambda x,t : f(x, params_arr[i], t)
-    x_output, t_output, h_output = BDF2_solve(dxdt, x0_arr[i,:], t0, t_end)
-    x_bdf.append(x_output)
-    t_bdf.append(t_output)
-    h_bdf.append(h_output)
+    t0 = 0
+    t_end = 10
 
-print(f"BDF2 total time: {round(1000*(time.time()-timestamp), 2)} ms")
+    """######################################################################
+                            Validate user input
+    ######################################################################"""
 
-"""######################################################################
-                        Evalution and Plots
-######################################################################"""
+    s = x0_arr.shape[0]
+    assert params_arr.shape[0] == s
+    try:
+        xdot = f(x0_arr[0], params_arr[0], 0)
+        if xdot.shape[0] != x0_arr.shape[1]:
+            raise Exception("xdot has wrong shape")
+    except Exception as e:
+        print(e)
+        raise
+
+    """######################################################################
+                            Single Thread Built in Solver
+    ######################################################################"""
+
+    timestamp = time.time()
+
+    t_odeint = np.linspace(t0,t_end,int(t_end/.01) + 1)
+    solutions_odeint = list()
+    for i in range(s):
+        dxdt = lambda x,t : f(x, params_arr[i], t)
+        solution = odeint(dxdt, x0_arr[i,:], t_odeint)
+        solutions_odeint.append(solution)
+
+    print(f"odeint total time: {round(1000*(time.time()-timestamp), 2)} ms")
 
 
-default_saturation = 1
-default_value = 1
-hues = [h.item() for h in np.linspace(0, .8, s)]
-colors = [colorsys.hsv_to_rgb(h, default_saturation, default_value) for h in hues]
+    """######################################################################
+                            Run rk45 solver
+    ######################################################################"""
+    from rk45 import RK45Solver
 
-plt.figure()
+    timestamp = time.time()
 
-################## plot x1 vs x2
-for i in range(s):
-    plt.plot(
-        solutions_odeint[i][:, 0],
-        solutions_odeint[i][:, 1],
-        color = colors[i],
-        linestyle = ":",
-        label=f"st: {i = }")
+    rk45solver = RK45Solver()
+    x_rk45 = list()
+    t_rk45 = list()
+    h_rk45 = list()
+    for i in range(s):
+        dxdt = lambda x,t : f(x, params_arr[i], t)
+        x_output, t_output, h_output = rk45solver.solve(dxdt, x0_arr[i,:], t0, t_end)
+        x_rk45.append(x_output)
+        t_rk45.append(t_output)
+        h_rk45.append(h_output)
 
-    plt.plot(
-        x_bdf[i][:, 0],
-        x_bdf[i][:, 1],
-        color = colors[i],
-        linestyle = "-",
-        alpha = .5,
-        label=f"mt: {i = }")
+    x_rk45 = [np.array(arr) for arr in x_rk45]
+    print(f"rk45 total time: {round(1000*(time.time()-timestamp), 2)} ms")
 
-#################### plot single state x vs t
+    """######################################################################
+                            Run the solver
+    ######################################################################"""
 
-# paramindex = 0
-# stateno = 0
-# plt.plot(t_odeint, solutions_odeint[paramindex][:,stateno], linestyle = "-", label = "odeint")
-# plt.plot(t_rk45[paramindex], x_rk45[paramindex][:,stateno], linestyle = ":", label = "rk45")
-# plt.plot(t_bdf[paramindex], x_bdf[paramindex][:,stateno], linestyle = "-.", label = "bdf")
-# plt.legend()
+    timestamp = time.time()
 
-# print(f"odeint: {solutions_odeint[paramindex][0,:]}")
-# print(f"rk45: {x_rk45[paramindex][0,:]}")
-# print(f"bdf: {x_bdf[paramindex][0,:]}")
+    x_bdf = list()
+    t_bdf = list()
+    h_bdf = list()
+    for i in range(s):
+        dxdt = lambda x,t : f(x, params_arr[i], t)
+        x_output, t_output, h_output = BDF2_solve(dxdt, x0_arr[i,:], t0, t_end)
+        x_bdf.append(x_output)
+        t_bdf.append(t_output)
+        h_bdf.append(h_output)
 
-###################### plot step size
-# plt.plot(t_bdf[0][:-1], h_bdf[0], label = "bdf", linestyle="-", alpha = .3)
+    print(f"BDF2 total time: {round(1000*(time.time()-timestamp), 2)} ms")
 
-# plt.show()
+    """######################################################################
+                            Evalution and Plots
+    ######################################################################"""
+
+
+    default_saturation = 1
+    default_value = 1
+    hues = [h.item() for h in np.linspace(0, .8, s)]
+    colors = [colorsys.hsv_to_rgb(h, default_saturation, default_value) for h in hues]
+
+    plt.figure()
+
+    ################## plot x1 vs x2
+    for i in range(s):
+        plt.plot(
+            solutions_odeint[i][:, 0],
+            solutions_odeint[i][:, 1],
+            color = colors[i],
+            linestyle = ":",
+            label=f"st: {i = }")
+
+        plt.plot(
+            x_bdf[i][:, 0],
+            x_bdf[i][:, 1],
+            color = colors[i],
+            linestyle = "-",
+            alpha = .5,
+            label=f"mt: {i = }")
+
+    #################### plot single state x vs t
+
+    # paramindex = 0
+    # stateno = 0
+    # plt.plot(t_odeint, solutions_odeint[paramindex][:,stateno], linestyle = "-", label = "odeint")
+    # plt.plot(t_rk45[paramindex], x_rk45[paramindex][:,stateno], linestyle = ":", label = "rk45")
+    # plt.plot(t_bdf[paramindex], x_bdf[paramindex][:,stateno], linestyle = "-.", label = "bdf")
+    # plt.legend()
+
+    # print(f"odeint: {solutions_odeint[paramindex][0,:]}")
+    # print(f"rk45: {x_rk45[paramindex][0,:]}")
+    # print(f"bdf: {x_bdf[paramindex][0,:]}")
+
+    ###################### plot step size
+    # plt.plot(t_bdf[0][:-1], h_bdf[0], label = "bdf", linestyle="-", alpha = .3)
+
+    plt.show()

@@ -2,6 +2,7 @@
 #include <chrono>
 #include <Eigen/Eigen>
 #include <unistd.h>
+#include <fstream>
 
 #define timestamp() std::chrono::high_resolution_clock::now()
 #define time_elapsed_ms(t1, t0) std::chrono::duration_cast<std::chrono::milliseconds>(t1-t0).count()
@@ -202,10 +203,34 @@ int main() {
     auto timestamp1 = timestamp();
     std::cout << "BDF2_solve finished in " << time_elapsed_ms(timestamp1, timestamp0) << " ms" << std::endl;
 
-    // std::cout << "x_output\n";
-    // for (int i=0; i<x_output.size(); i++) {
-    //     std::cout << x_output[i].transpose() << std::endl;
-    // }
+    std::ofstream output_file("output.csv");
+
+    output_file << "t,";
+    for (int i=0; i<x_output.size(); i++) {
+        output_file << t_output[i];
+        if (i < x_output.size()-1) {
+            output_file << ",";
+        }
+    }
+    output_file << "\n";
+
+    output_file << "x1,";
+    for (int i=0; i<x_output.size(); i++) {
+        output_file << x_output[i](0);
+        if (i < x_output.size()-1) {
+            output_file << ",";
+        }
+    }
+    output_file << "\n";
+
+    output_file << "x2,";
+    for (int i=0; i<x_output.size(); i++) {
+        output_file << x_output[i](1);
+        if (i < x_output.size()-1) {
+            output_file << ",";
+        }
+    }
+    output_file << "\n";
 
     return EXIT_SUCCESS;
 }
