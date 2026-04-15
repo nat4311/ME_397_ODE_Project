@@ -1,9 +1,11 @@
 /************************************************************************
 nvcc -ccbin gcc-12 rk45_fixed.cu -o rk45_fixed.out; ./rk45_fixed.out
+nvcc -ccbin gcc-12 -std=c++11 -Xcompiler -fPIC -lstdc++ rk45_fixed.cu -o rk45_fixed.out; ./rk45_fixed.out
 ************************************************************************/
 
 #include <cuda_runtime.h>
 #include <stdio.h>
+#include <fstream>
 
 /************************************************************************
                     user defines ODE
@@ -38,7 +40,7 @@ __host__ __device__ Vec2 operator*(double s, const Vec2& v) {
 const double h = .01;
 const double t0 = 0.0;
 const double t_end = 10.0;
-const int n_timesteps = int((t_end-t0)/h);
+const int n_timesteps = int((t_end-t0)/h) + 1;
 
 // arrays are flattened for transfer
 const int s = 4;
@@ -92,12 +94,22 @@ const double C6 = 6.0/25.0;
 // #define write_x(x_output_GPU, x, tid, i) x_output_GPU[tid*n*n_timesteps+n*i]=x.x; x_output_GPU[tid*n*n_timesteps+n*i+1]=x.y;
 // #define write_t(t_output_GPU, t, tid, i) t_output_GPU[tid*n_timesteps+i] = t;
 
-__device__ void write_x(double* x_output_GPU, Vec2* x, int tid, int i) {
-    x_output_GPU[tid*n*n_timesteps+n*i]=x->x;
-    x_output_GPU[tid*n*n_timesteps+n*i+1]=x->y;
+__device__ void write_x(double* x_output_GPU, Vec2* x, int s_index, int i) {
+    x_output_GPU[s_index*n*n_timesteps + n*i] = x->x;
+    x_output_GPU[s_index*n*n_timesteps + n*i + 1] = x->y;
 }
-__device__ void write_t(double* t_output_GPU, double t, int tid, int i) {
-    t_output_GPU[tid*n_timesteps+i] = t;
+__device__ void write_t(double* t_output_GPU, double t, int s_index, int i) {
+    t_output_GPU[s_index*n_timesteps + i] = t;
+}
+
+Vec2 read_x(double* x_output, int s_index, int i) {
+    return Vec2(
+        x_output[s_index*n*n_timesteps + n*i],
+        x_output[s_index*n*n_timesteps + n*i + 1]
+    );
+}
+double read_t(double* t_output, int s_index, int i) {
+    return t_output[s_index*n_timesteps + i];
 }
 
 __global__ void rk45_fixed(double* x_output_GPU, double* t_output_GPU, double* x0_arr_GPU, double* p_arr_GPU) {
@@ -114,7 +126,7 @@ __global__ void rk45_fixed(double* x_output_GPU, double* t_output_GPU, double* x
     write_x(x_output_GPU, &x, tid, 0);
     write_t(t_output_GPU, t, tid, 0);
 
-    for (int i=1; i<=n_timesteps; i++) {
+    for (int i=1; i<n_timesteps; i++) {
         // step
         k1 = h * dxdt(x, p);
         k2 = h * dxdt(x + B21*k1, p);
@@ -123,6 +135,7 @@ __global__ void rk45_fixed(double* x_output_GPU, double* t_output_GPU, double* x
         k5 = h * dxdt(x + B51*k1 + B52*k2 + B53*k3 + B54*k4, p);
         k6 = h * dxdt(x + B61*k1 + B62*k2 + B63*k3 + B64*k4 + B65*k5, p);
         x = x + C1*k1 + C2*k2 + C3*k3 + C4*k4 + C5*k5 + C6*k6;
+        t += h;
 
         // write data
         write_x(x_output_GPU, &x, tid, i);
@@ -142,10 +155,10 @@ int main() {
     double* p_arr_GPU = nullptr;
 
     // allocate memory on cpu and gpu
-    cudaMalloc(&x_output_GPU, n*s * (n_timesteps+1) * sizeof(double));
-    cudaMallocHost(&x_output, n*s * (n_timesteps+1) * sizeof(double));
-    cudaMalloc(&t_output_GPU, s * (n_timesteps+1) * sizeof(double));
-    cudaMallocHost(&t_output, s * (n_timesteps+1) * sizeof(double));
+    cudaMalloc(&x_output_GPU, n*s * n_timesteps * sizeof(double));
+    cudaMallocHost(&x_output, n*s * n_timesteps * sizeof(double));
+    cudaMalloc(&t_output_GPU, s * n_timesteps * sizeof(double));
+    cudaMallocHost(&t_output, s * n_timesteps * sizeof(double));
     cudaMalloc(&x0_arr_GPU, n*s * sizeof(double));
     cudaMalloc(&p_arr_GPU, m*s * sizeof(double));
 
@@ -160,6 +173,34 @@ int main() {
     // copy results back to CPU
     cudaMemcpy(x_output, x_output_GPU, n*s * n_timesteps * sizeof(double), cudaMemcpyDefault);
     cudaMemcpy(t_output, t_output_GPU, n_timesteps * sizeof(double), cudaMemcpyDefault);
+
+    // write results to file
+    std::ofstream file("rk45_fixed_output.csv");
+    file
+        << s << ","
+        << n << ","
+        << "\n";
+
+    for (int s_index=0; s_index<s; s_index++) {
+        // write time data
+        for (int i=0; i<n_timesteps; i++) {
+            file << read_t(t_output, s_index, i) << ",";
+        }
+        file << "\n";
+
+        // write x1
+        for (int i=0; i<n_timesteps; i++) {
+            Vec2 x = read_x(x_output, s_index, i);
+            file << x.x << ",";
+        }
+        file << "\n";
+        // write x2
+        for (int i=0; i<n_timesteps; i++) {
+            Vec2 x = read_x(x_output, s_index, i);
+            file << x.y << ",";
+        }
+        file << "\n";
+    }
 
     // free the memory
     cudaFreeHost(x_output);
