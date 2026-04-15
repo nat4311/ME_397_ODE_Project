@@ -1,11 +1,12 @@
-Note: project desc has dxdt as f(x,p), no time component
-
+Note: dxdt is f(x,p), no time component
 we have a single g (the ode function, dxdt = f(x,p))
 also have single Jg (jacobian of the ode function)
 we have a collection of {p_i, x0_i} -> length s. use BDF2_single to solve ODE i
 we will use the same t0, t_end, h0 for all
 x is vector of size nx1
 p is vector of size mx1
+
+need to run many BDF2_single_noJg in parallel on GPU
 
 # BDF2_single_noJg(g, x0, t0, t_end, p, h0=.01)
 // g is the ODE function g(x,p) = [xdot1, xdot2, ..., xdotn]

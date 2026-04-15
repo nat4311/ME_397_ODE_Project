@@ -25,12 +25,14 @@ def f(x, params, t):
     return np.array([x1dot, x2dot])
 
 n_odes = 4
-params_arr = np.random.rand(n_odes,1) * .2
+# params_arr = np.random.rand(n_odes,1) * .2
+# x0_arr = np.random.rand(n_odes,2) * n_odes
 
-x0_arr = np.random.rand(n_odes,2) * n_odes
+params_arr = np.array([[.1]])
+x0_arr = np.array([[.2,.3]])
 
 t0 = 0
-t_end = 2
+t_end = 10
 
 """######################################################################
                         Validate user input
@@ -89,10 +91,18 @@ def next_step_size(hprev, xn, xnm1, xnm2, xnm3, Atol=1e-10, Rtol=1e-5, F=.8, Fmi
     see https://www.scipedia.com/wd/images/e/ed/Draft_Content_631961461p3348.pdf equation (5)
     """
 
-    LTE_norm = np.linalg.norm(1/3*xn - xnm1 + xnm2 - 1/3*xnm3)
+    # LTE = 1/3*xn - xnm1 + xnm2 - 1/3*xnm3
+    LTE_norm = np.linalg.norm(1/3*xn - xnm1 + xnm2 - 1/3*xnm3).item()
+    # print(f"{LTE = }")
+    # print(f"{LTE_norm = }")
+    # print("prev x:")
+    # print(xn)
+    # print(xnm1)
+    # print(xnm2)
+    # print(xnm3)
     if LTE_norm < 1e-10:
         return hprev * Fmax
-    sc = Atol + max(np.linalg.norm(xn), np.linalg.norm(xnm1))*Rtol
+    sc = Atol + max(np.linalg.norm(xn).item(), np.linalg.norm(xnm1).item())*Rtol
     err = LTE_norm/sc
     
     return hprev * min(Fmax, max(Fmin, (1/err)**(1/3)*F))
@@ -145,6 +155,13 @@ def BDF2_step(g, xcurr, xprev, t, h, hprev, n, Jg=None, newtonMaxIters=20, newto
     # first guess
     q = deepcopy(xcurr)
 
+    # print(f"{h = }")
+    # print(f"{hprev = }")
+    # print(f"{wn = }")
+    # print(f"{a = }")
+    # print(f"{b = }")
+    # print(f"{c = }")
+
     # newton
     for i in range(newtonMaxIters):
         residual = f(q)
@@ -155,7 +172,7 @@ def BDF2_step(g, xcurr, xprev, t, h, hprev, n, Jg=None, newtonMaxIters=20, newto
         dq = -dfinv(q)@residual
         q += dq
 
-    assert type(q) == np.ndarray
+    # print(f"{q = }")
     return q
 
 def BDF2_solve(g, x0:np.array, t0:float, t_end:float, Jg=None, h0:float=.01):
@@ -191,6 +208,8 @@ def BDF2_solve(g, x0:np.array, t0:float, t_end:float, Jg=None, h0:float=.01):
     h_output.append(deepcopy(h))
 
     while t<t_end:
+        # print()
+        # print(f"{t = }")
         xprev = deepcopy(x_output[-2])
         hprev = deepcopy(h_output[-1])
 
@@ -299,4 +318,4 @@ for i in range(s):
 ###################### plot step size
 # plt.plot(t_bdf[0][:-1], h_bdf[0], label = "bdf", linestyle="-", alpha = .3)
 
-plt.show()
+# plt.show()
