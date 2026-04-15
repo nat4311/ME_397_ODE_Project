@@ -63,6 +63,7 @@ __device__ Vec2 dxdt(Vec2 x, double p) {
     Vec2 xdot;
     xdot(0) = x2;
     xdot(1) = p*(1.0-x1*x1)*x2 - x1;
+    return xdot;
 }
 
 /************************************************************************
@@ -99,13 +100,13 @@ __device__ void write_t(double* t_output_GPU, double t, int tid, int i) {
     t_output_GPU[tid*n_timesteps+i] = t;
 }
 
-__global__ void rk45_fixed(double* x_output_GPU, double* t_output_GPU) {
+__global__ void rk45_fixed(double* x_output_GPU, double* t_output_GPU, double* x0_arr_GPU, double* p_arr_GPU) {
     // get tid - todo: figure out optimal thread/block sizes
     int tid = threadIdx.x + blockDim.x * blockIdx.x; // range: [0,s-1]
 
     // unflatten values - todo: make this more general (currently depends on user ODE)
-    Vec2 x(x0_arr[tid][0], x0_arr[tid][1]);
-    double p = p_arr[tid][0];
+    Vec2 x(x0_arr_GPU[tid*n], x0_arr_GPU[tid*n+1]);
+    double p = p_arr_GPU[tid*m];
     double t = t0;
     Vec2 k1, k2, k3, k4, k5, k6;
 
@@ -148,8 +149,12 @@ int main() {
     cudaMalloc(&x0_arr_GPU, n*s * sizeof(double));
     cudaMalloc(&p_arr_GPU, m*s * sizeof(double));
 
+    // copy x0_arr and p_arr to GPU
+    cudaMemcpy(x0_arr_GPU, x0_arr, n*s*sizeof(double), cudaMemcpyDefault);
+    cudaMemcpy(p_arr_GPU, p_arr, m*s*sizeof(double), cudaMemcpyDefault);
+
     // run rk45 on GPU
-    rk45_fixed<<<1,s>>>(x_output_GPU, t_output_GPU);
+    rk45_fixed<<<1,s>>>(x_output_GPU, t_output_GPU, x0_arr_GPU, p_arr_GPU);
     cudaDeviceSynchronize();
 
     // copy results back to CPU
