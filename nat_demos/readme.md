@@ -16,4 +16,3 @@ to compile:
     nvcc -ccbin gcc-12 -std=c++11 -Xcompiler -fPIC -lstdc++ rk45_fixed.cu -o rk45_fixed.out -lm
 to run:
     ./rk45_fixed.out
-
