@@ -11,6 +11,9 @@ to compile:
 to run:
     ./rk45_fixed.out
 
+can also run the python script to get a comparison with python's odeint solver for correctness and timing:
+    python3 rk45_fixed.py
+
 ## nat_demos/3b_rk45_fixed_variable_dt/
 
 CUDA implementation of rk45 with variable timestep across all ODEs
@@ -19,3 +22,6 @@ to compile:
     nvcc -ccbin gcc-12 -std=c++11 -Xcompiler -fPIC -lstdc++ rk45_fixed.cu -o rk45_fixed.out -lm
 to run:
     ./rk45_fixed.out
+
+can also run the python script to get a comparison with python's odeint solver for correctness and timing:
+    python3 rk45_fixed.py
